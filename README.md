@@ -1,22 +1,9 @@
-<!--
----
-name: Python AI Agent Frameworks Demos
-description: Collection of Python examples for popular AI agent frameworks using GitHub Models or Azure OpenAI.
-languages:
-- python
-products:
-- azure-openai
-- azure
-page_type: sample
-urlFragment: python-ai-agent-frameworks-demos
----
--->
-# Python AI Agent Frameworks Demos
+# LinkedIn Account Management Agent
 
 [![Open in GitHub Codespaces](https://img.shields.io/static/v1?style=for-the-badge&label=GitHub+Codespaces&message=Open&color=brightgreen&logo=github)](https://codespaces.new/Azure-Samples/python-ai-agent-frameworks-demos)
 [![Open in Dev Containers](https://img.shields.io/static/v1?style=for-the-badge&label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/Azure-Samples/python-ai-agent-frameworks-demos)
 
-This repository provides examples of many popular Python AI agent frameworks using LLMs from [GitHub Models](https://github.com/marketplace/models). Those models are free to use for anyone with a GitHub account, up to a [daily rate limit](https://docs.github.com/github-models/prototyping-with-ai-models#rate-limits).
+This repository provides an AI-powered agent for managing personal LinkedIn accounts. The agent uses [OpenAI Agents](https://openai.github.io/openai-agents-python/) for decision-making and [Playwright](https://playwright.dev/python/) for web automation. It can process LinkedIn invitations, deciding whether to accept or ignore them based on customizable criteria.
 
 * [Getting started](#getting-started)
   * [GitHub Codespaces](#github-codespaces)
@@ -83,24 +70,9 @@ A related option is VS Code Dev Containers, which will open the project in your 
     pip install -r requirements.txt
     ```
 
-## Running the Python examples
+## Running the invitation manager
 
-You can run the examples in this repository by executing the scripts in the `examples` directory. Each script demonstrates a different AI agent pattern or framework.
-
-| Example | Description |
-| ------- | ----------- |
-| autogen_basic.py | Uses AutoGen to build a single agent. |
-| autogen_tools.py | Uses AutoGen to build a single agent with tools. |
-| autogen_magenticone.py | Uses AutoGen with the MagenticOne orchestrator agent for travel planning. |
-| autogen_swarm.py | Uses AutoGen with the Swarm orchestrator agent for flight refunding requests. |
-| langgraph.py | Uses LangGraph to build an agent with a StateGraph to play songs. |
-| llamaindex.py | Uses LlamaIndex to build a ReAct agent for RAG on multiple indexes. |
-| openai_agents_basic.py | Uses the OpenAI Agents framework to build a single agent. |
-| openai_agents.py | Uses the OpenAI Agents framework to handoff between several agents with tools. |
-| openai_functioncalling.py | Uses OpenAI Function Calling to call functions based on LLM output. |
-| pydanticai.py | Uses PydanticAI to build a two-agent sequential workflow for flight planning. |
-| semantickernel.py | Uses Semantic Kernel to build a writer/editor two-agent workflow. |
-| smolagents_codeagent.py | Uses SmolAgents to build a question-answering agent that can search the web and run code. |
+You can run the LinkedIn agent by executing the `invitations_manager.py` script. The agent will process LinkedIn invitations based on the decision logic defined in the code.
 
 ## Configuring GitHub Models
 
@@ -161,11 +133,6 @@ This project includes infrastructure as code (IaC) to provision Azure OpenAI dep
 
 ## Resources
 
-* [AutoGen Documentation](https://microsoft.github.io/autogen/)
-* [LangGraph Documentation](https://langchain-ai.github.io/langgraph/tutorials/introduction/)
-* [LlamaIndex Documentation](https://docs.llamaindex.ai/en/latest/)
 * [OpenAI Agents Documentation](https://openai.github.io/openai-agents-python/)
+* [Playwright Documentation](https://playwright.dev/python/)
 * [OpenAI Function Calling Documentation](https://platform.openai.com/docs/guides/function-calling?api-mode=chat)
-* [PydanticAI Documentation](https://ai.pydantic.dev/multi-agent-applications/)
-* [Semantic Kernel Documentation](https://learn.microsoft.com/semantic-kernel/overview/)
-* [SmolAgents Documentation](https://huggingface.co/docs/smolagents/index)
