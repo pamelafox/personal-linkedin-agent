@@ -38,7 +38,7 @@ elif API_HOST == "ollama":
     client = openai.AsyncOpenAI(base_url="http://localhost:11434/v1", api_key="none")
     MODEL_NAME = "llama3.1:latest"
 
-NUM_TO_ACCEPT = 10
+NUM_TO_ACCEPT = 30
 
 
 class InvitationDecision(Enum):

@@ -3,7 +3,7 @@
 [![Open in GitHub Codespaces](https://img.shields.io/static/v1?style=for-the-badge&label=GitHub+Codespaces&message=Open&color=brightgreen&logo=github)](https://codespaces.new/Azure-Samples/python-ai-agent-frameworks-demos)
 [![Open in Dev Containers](https://img.shields.io/static/v1?style=for-the-badge&label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/Azure-Samples/python-ai-agent-frameworks-demos)
 
-This repository provides an AI-powered agent for managing personal LinkedIn accounts. The agent uses [OpenAI Agents](https://openai.github.io/openai-agents-python/) for decision-making and [Playwright](https://playwright.dev/python/) for web automation. It can process LinkedIn invitations, deciding whether to accept or ignore them based on customizable criteria.
+This repository provides an AI-powered agent for managing personal LinkedIn accounts. The agent uses [OpenAI Agents](https://openai.github.io/openai-agents-python/) for decision-making and [Playwright](https://playwright.dev/python/) for web automation. It can process LinkedIn invitations, deciding whether to accept or ignore them based on customizable criteria. See [the demo video](https://www.youtube.com/live/ue8D7Hi4nGs) to see the agent in action.
 
 * [Getting started](#getting-started)
   * [GitHub Codespaces](#github-codespaces)
@@ -133,6 +133,7 @@ This project includes infrastructure as code (IaC) to provision Azure OpenAI dep
 
 ## Resources
 
+* [Video: Live demo of the agent](https://www.youtube.com/live/ue8D7Hi4nGs)
 * [OpenAI Agents Documentation](https://openai.github.io/openai-agents-python/)
 * [Playwright Documentation](https://playwright.dev/python/)
 * [OpenAI Function Calling Documentation](https://platform.openai.com/docs/guides/function-calling?api-mode=chat)
