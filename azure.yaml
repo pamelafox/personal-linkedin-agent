@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: azure-openai-entity-extraction
+metadata:
+  template: azure-openai-entity-extraction@0.0.4
+hooks:
+  postprovision:
+    windows:
+      shell: pwsh
+      run: ./infra/write_dot_env.ps1
+      interactive: false
+      continueOnError: false
+    posix:
+      shell: sh
+      run: ./infra/write_dot_env.sh
+      interactive: false
+      continueOnError: false
