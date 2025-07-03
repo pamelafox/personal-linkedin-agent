@@ -9,10 +9,9 @@ This repository provides an AI-powered agent for managing personal LinkedIn acco
   * [GitHub Codespaces](#github-codespaces)
   * [VS Code Dev Containers](#vs-code-dev-containers)
   * [Local environment](#local-environment)
-* [Running the Python examples](#running-the-python-examples)
-* [Guidance](#guidance)
-  * [Costs](#costs)
-  * [Security guidelines](#security-guidelines)
+* [Configuring GitHub Models](#configuring-github-models)
+* [Configuring Azure AI models](#configuring-azure-ai-models)
+* [Running the invitation manager](#running-the-invitation-manager)
 * [Resources](#resources)
 
 ## Getting started
@@ -70,9 +69,6 @@ A related option is VS Code Dev Containers, which will open the project in your 
     pip install -r requirements.txt
     ```
 
-## Running the invitation manager
-
-You can run the LinkedIn agent by executing the `invitations_manager.py` script. The agent will process LinkedIn invitations based on the decision logic defined in the code.
 
 ## Configuring GitHub Models
 
@@ -96,11 +92,11 @@ If you want to run the scripts locally, you need to set up the `GITHUB_TOKEN` en
 
 10. Optionally, you can use a model other than "gpt-4o" by setting the `GITHUB_MODEL` environment variable. Use a model that supports function calling, such as: `gpt-4o`, `gpt-4o-mini`, `o3-mini`, `AI21-Jamba-1.5-Large`, `AI21-Jamba-1.5-Mini`, `Codestral-2501`, `Cohere-command-r`, `Ministral-3B`, `Mistral-Large-2411`, `Mistral-Nemo`, `Mistral-small`
 
-## Provisioning Azure AI resources
+## Configuring Azure AI models
 
 You can run all examples in this repository using GitHub Models. If you want to run the examples using models from Azure OpenAI instead, you need to provision the Azure AI resources, which will incur costs.
 
-This project includes infrastructure as code (IaC) to provision Azure OpenAI deployments of "gpt-4o" and "text-embedding-3-large". The IaC is defined in the `infra` directory and uses the Azure Developer CLI to provision the resources.
+This project includes infrastructure as code (IaC) to provision an Azure OpenAI deployment of "gpt-4o". The IaC is defined in the `infra` directory and uses the Azure Developer CLI to provision the resources.
 
 1. Make sure the [Azure Developer CLI (azd)](https://aka.ms/install-azd) is installed.
 
@@ -130,6 +126,10 @@ This project includes infrastructure as code (IaC) to provision Azure OpenAI dep
     ```shell
     azd down
     ```
+
+## Running the invitation manager
+
+You can run the LinkedIn agent by executing the `invitations_manager.py` script. The agent will process LinkedIn invitations based on the decision logic defined in the code.
 
 ## Resources
 

@@ -1,24 +1,22 @@
 import asyncio
 import logging
 import os
+import json
 from enum import Enum
 from typing import Any
+from pydantic import BaseModel
 
 import azure.identity
 import openai
-from agents import Agent, OpenAIChatCompletionsModel, RunContextWrapper, Runner, function_tool, set_tracing_disabled
 from dotenv import load_dotenv
 from rich.logging import RichHandler
 
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, Page
 
 # Setup logging with rich
 logging.basicConfig(level=logging.WARNING, format="%(message)s", datefmt="[%X]", handlers=[RichHandler()])
 logger = logging.getLogger("weekend_planner")
 logger.setLevel(logging.INFO)
-
-# Disable tracing since we're not connected to a supported tracing provider
-set_tracing_disabled(disabled=True)
 
 # Setup the OpenAI client to use either Azure OpenAI or GitHub Models
 load_dotenv(override=True)
@@ -27,7 +25,9 @@ if API_HOST == "github":
     client = openai.AsyncOpenAI(base_url="https://models.inference.ai.azure.com", api_key=os.environ["GITHUB_TOKEN"])
     MODEL_NAME = os.getenv("GITHUB_MODEL", "gpt-4o")
 elif API_HOST == "azure":
-    token_provider = azure.identity.get_bearer_token_provider(azure.identity.DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
+    token_provider = azure.identity.get_bearer_token_provider(
+        azure.identity.AzureDeveloperCliCredential(tenant_id=os.environ["AZURE_TENANT_ID"]),
+        "https://cognitiveservices.azure.com/.default")
     client = openai.AsyncAzureOpenAI(
         api_version=os.environ["AZURE_OPENAI_VERSION"],
         azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
@@ -38,59 +38,83 @@ elif API_HOST == "ollama":
     client = openai.AsyncOpenAI(base_url="http://localhost:11434/v1", api_key="none")
     MODEL_NAME = "llama3.1:latest"
 
-NUM_TO_ACCEPT = 30
-
-
 class InvitationDecision(Enum):
     ACCEPT = "accept"
     IGNORE = "ignore"
     UNDECIDED = "undecided"
 
-@function_tool
-async def make_invitation_decision(wrapper: RunContextWrapper[Any], decision: InvitationDecision) -> str:
-    """Click the accept/ignore button based on the decision made by the agent."""
-    card = wrapper.context
+class MakeInvitationDecision(BaseModel):
+    """Function tool to make a decision on LinkedIn invitations."""
+    decision: InvitationDecision
+    reason: str
+
+async def ask_llm_for_decision(client, invitation_card, invitation_info: str):
+    response = await client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=[
+            {"role": "system",
+            "content": 
+            """Decide whether to accept or ignore LinkedIn invitations based on the profile information provided.
+Accept if the person has a technical role or mutual connections or works at Microsoft.
+Ignore if they are a recruiter.
+If you have any uncertainty at all as to whether the person meets the acceptance criteria, respond with 'undecided'.
+"""},
+            {"role": "user", "content": invitation_info},
+        ],
+        tools=[openai.pydantic_function_tool(MakeInvitationDecision)],
+    )
+    # add handling for tool_calls being none
+    if not response.choices or not response.choices[0].message.tool_calls:
+        logger.warning("No tool calls found in the response: %s", response.choices[0].message)
+        # Sometimes the LLM will respond with just "accept" or "ignore" without tool calls
+        try:
+            decision_reason = "No reason provided by the agent."
+            decision = InvitationDecision(response.choices[0].message.content.strip().lower())
+        except ValueError:
+            logger.warning("Invalid decision value: %s", response.choices[0].message.content)
+            decision = InvitationDecision.UNDECIDED
+    else:
+        arguments = json.loads(response.choices[0].message.tool_calls[0].function.arguments)
+        decision = InvitationDecision(arguments["decision"])
+        decision_reason = arguments["reason"]
     if decision == InvitationDecision.ACCEPT:
-        # use playwright to click the accept button
-        accept_button = await card.query_selector("button[aria-label*='Accept']")
+        accept_button = await invitation_card.query_selector("button[aria-label*='Accept']")
         if accept_button:
             await accept_button.click()
-            return decision.value
         else:
             logger.warning("Accept button not found on the card.")
-            return InvitationDecision.UNDECIDED.value
+            decision = InvitationDecision.UNDECIDED
     elif decision == InvitationDecision.IGNORE:
-        ignore_button = await card.query_selector("button[aria-label*='Ignore']")
+        ignore_button = await invitation_card.query_selector("button[aria-label*='Ignore']")
         if ignore_button:
             await ignore_button.click()
-            return decision.value
         else:
             logger.warning("Ignore button not found on the card.")
-            return InvitationDecision.UNDECIDED.value
-    return decision.value
+            decision = InvitationDecision.UNDECIDED
+    return MakeInvitationDecision(decision=decision, reason=decision_reason)
 
-async def process_linkedin_invitations():
-    """
-    Processes LinkedIn invitations based on criteria:
-    - Ignore recruiters
-    - Accept people with technical roles who have mutual connections
-    - Process up to 10 invitations
-    """
+async def get_profile_info(page: Page, profile_url: str) -> str:
+    """Visit the profile page and extract relevant information."""
+    # Open profile in a new tab
+    new_page = await page.context.new_page()
+    await new_page.goto(profile_url)
+    await new_page.wait_for_load_state("load")
+    
+    # Just grab the whole main region
+    main_content = await new_page.query_selector("main")
+    if not main_content:
+        logger.warning(f"Main content not found on profile page: {profile_url}")
+        return "Profile information not available."
+    profile_text = await main_content.inner_text()
+    await new_page.close()
+    return profile_text
 
-    agent = Agent(
-        name="Invitation Assistant",
-        instructions="Decide whether to accept or ignore LinkedIn invitations based on the profile information provided. Accept if the person has a technical role and mutual connections, ignore if they are a recruiter. If you are unsure, respond with 'undecided'.",
-        model=OpenAIChatCompletionsModel(model=MODEL_NAME, openai_client=client),
-        tools=[make_invitation_decision],
-        tool_use_behavior="stop_on_first_tool"
-    )
-
+async def process_linkedin_invitations(num_to_accept: int):
     logger.info("Starting LinkedIn invitation processing...")
     results = []
     processed_count = 0
 
     # Set up the storage state for Playwright
-
     os.makedirs("playwright/.auth", exist_ok=True)
     # If file doesn't exist, create it with empty JSON
     if not os.path.exists("playwright/.auth/state.json"):
@@ -130,13 +154,13 @@ async def process_linkedin_invitations():
         # Initialize the last processed index
         last_processed_index = 0
 
-        while processed_count < NUM_TO_ACCEPT and len(invitation_cards) > 0:
+        while processed_count < num_to_accept and len(invitation_cards) > 0:
             for index, card in enumerate(invitation_cards):
                 # Skip cards that have already been processed
                 if index < last_processed_index:
                     continue
 
-                if processed_count >= NUM_TO_ACCEPT:
+                if processed_count >= num_to_accept:
                     break
 
                 # Extract profile info
@@ -161,26 +185,34 @@ async def process_linkedin_invitations():
                 has_mutual_connections = "mutual connection" in connection_info.lower()
 
                 # Use the agent variable from the run function
-                decision_message = f"Name: {name}, Job Title: {job_title}, Profile Link: {profile_link}, Connection Info: {connection_info}. Respond with 'accept', 'ignore', or 'undecided'."
-                agent_input = [{"role": "user", "content": decision_message}]
-                agent_result = await Runner.run(starting_agent=agent, input=agent_input, context=card)
-                agent_decision = agent_result.final_output
+                decision_message = f"Name: {name}, Job Title: {job_title}, Profile Link: {profile_link}, Connection Info: {connection_info}. Respond with 'accept', 'ignore', or 'undecided' and provide a reason for your decision."
+                decision_and_reason = await ask_llm_for_decision(client, card, decision_message)
+
+                # If agent is undecided, fetch more information from profile
+                if decision_and_reason.decision == InvitationDecision.UNDECIDED:
+                    logger.info(f"Agent is undecided about {name}. Fetching profile information...")
+                    profile_info = await get_profile_info(page, profile_link)
+                    
+                    # Ask agent again with more context
+                    detailed_message = f"Additional profile information for {name} ({job_title}):\n{profile_info}\n\nBased on this additional information, should we accept or ignore this invitation? Provide a reason for your decision."
+                    decision_and_reason = await ask_llm_for_decision(client, card, detailed_message)
+                    logger.info(f"Agent's final decision for {name}: {decision_and_reason.decision} - {decision_and_reason.reason}")
 
                 # Store results
-                results.append({"name": name, "profile": profile_link, "job_title": job_title, "mutual_connections": has_mutual_connections, "decision": agent_decision})
+                results.append({"name": name, "profile": profile_link, "job_title": job_title, "mutual_connections": has_mutual_connections, "decision": decision_and_reason.decision, "reason": decision_and_reason.reason})
 
                 processed_count += 1
 
                 # Small delay to avoid rate limiting
                 await asyncio.sleep(1)
 
-                if processed_count >= NUM_TO_ACCEPT:
+                if processed_count >= num_to_accept:
                     break
 
             # Update the last processed index
             last_processed_index = len(invitation_cards)
 
-            if processed_count < NUM_TO_ACCEPT:
+            if processed_count < num_to_accept:
                 logger.info(f"Processed {processed_count} invitations so far. Scrolling to load more...")
                 # Scroll down to load more
                 await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
@@ -197,9 +229,9 @@ async def process_linkedin_invitations():
         logger.info("\n=== LinkedIn Invitation Processing Report ===")
         logger.info(f"Total invitations processed: {processed_count}")
 
-        accepted = [r for r in results if r["decision"] == InvitationDecision.ACCEPT.value]
-        ignored = [r for r in results if r["decision"] == InvitationDecision.IGNORE.value]
-        undecided = [r for r in results if r["decision"] == InvitationDecision.UNDECIDED.value]
+        accepted = [r for r in results if r["decision"] == InvitationDecision.ACCEPT]
+        ignored = [r for r in results if r["decision"] == InvitationDecision.IGNORE]
+        undecided = [r for r in results if r["decision"] == InvitationDecision.UNDECIDED]
 
         logger.info(f"\nAccepted ({len(accepted)}):")
         for invitation in accepted:
@@ -211,10 +243,12 @@ async def process_linkedin_invitations():
         for invitation in ignored:
             logger.info(f"- {invitation['name']} ({invitation['job_title']})")
             logger.info(f"  Profile: {invitation['profile']}")
+            logger.info(f"  Reason: {invitation['reason']}")
 
         logger.info(f"\nUndecided ({len(undecided)}):")
         for invitation in undecided:
             logger.info(f"- {invitation['name']} ({invitation['job_title']}) {invitation['profile']}")
+            logger.info(f"  Reason: {invitation['reason']}")
 
         # Close the browser
         await browser.close()
@@ -222,4 +256,4 @@ async def process_linkedin_invitations():
     return results
 
 if __name__ == "__main__":
-    asyncio.run(process_linkedin_invitations())
+    asyncio.run(process_linkedin_invitations(30))
