@@ -2,18 +2,17 @@ import asyncio
 import logging
 import os
 from enum import Enum
-from typing import Optional
-from pydantic import BaseModel
 
 import azure.identity
 from dotenv import load_dotenv
-from rich.logging import RichHandler
 from openai import AsyncAzureOpenAI, AsyncOpenAI
+from pydantic import BaseModel
 from pydantic_ai import Agent, NativeOutput
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from rich.logging import RichHandler
 
-from playwright.async_api import async_playwright, Page
+from playwright.async_api import Page, async_playwright
 
 # Setup logging with rich
 logging.basicConfig(level=logging.WARNING, format="%(message)s", datefmt="[%X]", handlers=[RichHandler(show_level=True)])
@@ -42,16 +41,18 @@ class InvitationAction(Enum):
     IGNORE = "ignore"
     UNDECIDED = "undecided"
 
+
 class InvitationDecision(BaseModel):
     action: InvitationAction
     reason: str
+
 
 class Invitation(BaseModel):
     name: str
     profile: str
     job_title: str
     mutual_connections: bool
-    decision: Optional[InvitationDecision] = None
+    decision: InvitationDecision | None = None
 
 
 agent = Agent(
@@ -60,10 +61,11 @@ agent = Agent(
 Accept if the person has a technical role or mutual connections or works at Microsoft.
 Ignore if they are a recruiter.
 If you have any uncertainty at all as to whether the person meets the acceptance criteria, respond with 'undecided'.""",
-    output_type=NativeOutput(InvitationDecision)
+    output_type=NativeOutput(InvitationDecision),
 )
 
-async def get_invitation_info(card) -> Optional[Invitation]:
+
+async def get_invitation_info(card) -> Invitation | None:
     # Extract profile info
     name_element = await card.query_selector("a > strong")
     if not name_element:
@@ -84,12 +86,7 @@ async def get_invitation_info(card) -> Optional[Invitation]:
     connection_info_element = await card.query_selector("*:has-text('mutual connection')")
     connection_info = await connection_info_element.inner_text() if connection_info_element else ""
     has_mutual_connections = "mutual connection" in connection_info.lower()
-    return Invitation(
-        name=name,
-        profile=profile_link,
-        job_title=job_title,
-        mutual_connections=has_mutual_connections
-    )
+    return Invitation(name=name, profile=profile_link, job_title=job_title, mutual_connections=has_mutual_connections)
 
 
 async def get_profile_info(page: Page, profile_url: str) -> str:
@@ -98,7 +95,7 @@ async def get_profile_info(page: Page, profile_url: str) -> str:
     new_page = await page.context.new_page()
     await new_page.goto(profile_url)
     await new_page.wait_for_load_state("load")
-    
+
     # Just grab the whole main region
     main_content = await new_page.query_selector("main")
     if not main_content:
@@ -107,6 +104,7 @@ async def get_profile_info(page: Page, profile_url: str) -> str:
     profile_text = await main_content.inner_text()
     await new_page.close()
     return profile_text
+
 
 async def execute_action(card: Page, decision: InvitationDecision) -> InvitationDecision:
     if decision.action == InvitationAction.ACCEPT:
@@ -124,10 +122,9 @@ async def execute_action(card: Page, decision: InvitationDecision) -> Invitation
             logger.warning("Ignore button not found on the card.")
             decision.action = InvitationAction.UNDECIDED
     return decision
-            
-            
-async def process_linkedin_invitations(num_to_process: int):
 
+
+async def process_linkedin_invitations(num_to_process: int):
     logger.info("Starting LinkedIn invitation processing...")
     results = []
     processed_count = 0
@@ -145,7 +142,7 @@ async def process_linkedin_invitations(num_to_process: int):
         # Launch browser
         browser = await p.chromium.launch(headless=False)
         context = await browser.new_context(storage_state="playwright/.auth/state.json")
-    
+
         # Create a new page
         page = await context.new_page()
 
@@ -181,7 +178,7 @@ async def process_linkedin_invitations(num_to_process: int):
 
                 if processed_count >= num_to_process:
                     break
-                
+
                 invitation = await get_invitation_info(card)
                 if not invitation:
                     continue
@@ -254,16 +251,12 @@ async def process_linkedin_invitations(num_to_process: int):
 
     return results
 
+
 if __name__ == "__main__":
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Process LinkedIn invitations.")
-    parser.add_argument(
-        "--num-to-process",
-        type=int,
-        default=2,
-        help="Number of LinkedIn invitations to process (default: 2)."
-    )
+    parser.add_argument("--num-to-process", type=int, default=10, help="Number of LinkedIn invitations to process (default: 10).")
     args = parser.parse_args()
-    
+
     asyncio.run(process_linkedin_invitations(args.num_to_process))
