@@ -3,7 +3,7 @@
 [![Open in GitHub Codespaces](https://img.shields.io/static/v1?style=for-the-badge&label=GitHub+Codespaces&message=Open&color=brightgreen&logo=github)](https://codespaces.new/Azure-Samples/python-ai-agent-frameworks-demos)
 [![Open in Dev Containers](https://img.shields.io/static/v1?style=for-the-badge&label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/Azure-Samples/python-ai-agent-frameworks-demos)
 
-This repository provides an AI-powered agent for managing personal LinkedIn accounts. The agent uses [Pydantic AI](https://ai.pydantic.dev/) for LLM-based decisions and [Playwright](https://playwright.dev/python/) for browser automation. It can process LinkedIn invitations, deciding whether to accept or ignore them based on customizable criteria. See [the demo video](https://www.youtube.com/watch?v=YV9teLj1EYQ) to see the agent in action.
+This repository provides an AI-powered agent for managing personal LinkedIn accounts. The agent uses [Pydantic AI](https://ai.pydantic.dev/) for LLM-based decisions and [Playwright](https://playwright.dev/python/) for browser automation. It can process LinkedIn invitations, deciding whether to accept or ignore them based on customizable criteria. See [the demo video](https://www.youtube.com/live/-OsgE9yBkFE) to see the agent in action.
 
 * [Getting started](#getting-started)
   * [GitHub Codespaces](#github-codespaces)
@@ -133,7 +133,7 @@ You can run the LinkedIn agent by executing the `invitations_manager.py` script.
 
 ## Resources
 
-* [Video: Live demo of the agent](https://www.youtube.com/watch?v=YV9teLj1EYQ)
+* [Video: Live demo of the agent](https://www.youtube.com/live/-OsgE9yBkFE)
 * [Pydantic AI Documentation](https://ai.pydantic.dev/)
 * [Playwright Documentation](https://playwright.dev/python/)
 * [OpenAI Function Calling Documentation](https://platform.openai.com/docs/guides/function-calling?api-mode=chat)
