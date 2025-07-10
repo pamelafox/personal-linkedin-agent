@@ -255,4 +255,15 @@ async def process_linkedin_invitations(num_to_process: int):
     return results
 
 if __name__ == "__main__":
-    asyncio.run(process_linkedin_invitations(2))
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Process LinkedIn invitations.")
+    parser.add_argument(
+        "--num-to-process",
+        type=int,
+        default=2,
+        help="Number of LinkedIn invitations to process (default: 2)."
+    )
+    args = parser.parse_args()
+    
+    asyncio.run(process_linkedin_invitations(args.num_to_process))
