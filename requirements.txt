@@ -4,5 +4,5 @@ python-dotenv
 rich
 dotenv-azd
 aiohttp
-openai-agents
 playwright
+pydantic-ai
