@@ -12,7 +12,7 @@ from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from rich.logging import RichHandler
 
-from playwright.async_api import Page, async_playwright
+from playwright.async_api import ElementHandle, Page, async_playwright
 
 # Setup logging with rich
 logging.basicConfig(level=logging.WARNING, format="%(message)s", datefmt="[%X]", handlers=[RichHandler(show_level=True)])
@@ -26,6 +26,7 @@ API_HOST = os.getenv("API_HOST", "github")
 if API_HOST == "github":
     client = AsyncOpenAI(api_key=os.environ["GITHUB_TOKEN"], base_url="https://models.inference.ai.azure.com")
     model = OpenAIModel(os.getenv("GITHUB_MODEL", "gpt-4o"), provider=OpenAIProvider(openai_client=client))
+    logger.info("Using GitHub Models with model %s", model.model_name)
 elif API_HOST == "azure":
     token_provider = azure.identity.get_bearer_token_provider(azure.identity.DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
     client = AsyncAzureOpenAI(
@@ -34,6 +35,7 @@ elif API_HOST == "azure":
         azure_ad_token_provider=token_provider,
     )
     model = OpenAIModel(os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"], provider=OpenAIProvider(openai_client=client))
+    logger.info("Using Azure OpenAI with model %s", model.model_name)
 
 
 class InvitationAction(Enum):
@@ -106,7 +108,7 @@ async def get_profile_info(page: Page, profile_url: str) -> str:
     return profile_text
 
 
-async def execute_action(card: Page, decision: InvitationDecision) -> InvitationDecision:
+async def execute_action(card: ElementHandle, decision: InvitationDecision) -> InvitationDecision:
     if decision.action == InvitationAction.ACCEPT:
         accept_button = await card.query_selector("button[aria-label*='Accept']")
         if accept_button:
@@ -186,6 +188,7 @@ async def process_linkedin_invitations(num_to_process: int):
                 decision_message = f"Name: {invitation.name}, Job Title: {invitation.job_title}, Profile Link: {invitation.profile}, Connection Info: {invitation.mutual_connections}."
                 agent_result = await agent.run(decision_message)
                 decision = agent_result.output
+                logger.info("%d tokens used for decision", agent_result.usage().total_tokens)
                 decision = await execute_action(card, decision)
 
                 # If agent is undecided, fetch more information from profile
@@ -196,6 +199,7 @@ async def process_linkedin_invitations(num_to_process: int):
                     # Ask agent again with more context
                     detailed_message = f"Full profile information for {invitation.name} ({invitation.job_title}):\n{profile_info}\n\nBased on this additional information, should we accept or ignore this invitation? Provide a reason for your decision."
                     detailed_result = await agent.run(detailed_message)
+                    logger.info("%d tokens used for decision", detailed_result.usage().total_tokens)
                     decision = detailed_result.output
                     decision = await execute_action(card, decision)
                     logger.info(f"Agent's final decision for {invitation.name}: {decision.action} - {decision.reason}")

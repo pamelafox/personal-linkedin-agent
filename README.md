@@ -131,6 +131,14 @@ This project includes infrastructure as code (IaC) to provision an Azure OpenAI 
 
 You can run the LinkedIn agent by executing the `invitations_manager.py` script. The agent will process LinkedIn invitations based on the decision logic defined in the code.
 
+## Cost estimate
+
+On average, each LinkedIn invitation processed by the agent requires approximately 200 tokens. If the agent decides it needs to open the full profile page to gather more information, it requires an additional 400 tokens on average.
+
+If you use GitHub Models, the cost is free as long as usage remains under [the rate limits](https://docs.github.com/github-models/use-github-models/prototyping-with-ai-models#rate-limits). You can switch models to a model with a lower rate limit by setting the `GITHUB_MODEL` environment variable in `.env` to a different model name.
+
+If you use Azure OpenAI, the cost depends on the model and the number of tokens processed. You can find the pricing details on the [Azure OpenAI pricing page](https://azure.microsoft.com/pricing/details/cognitive-services/openai-service/).
+
 ## Resources
 
 * [Video: Live demo of the agent](https://www.youtube.com/watch?v=YV9teLj1EYQ)
