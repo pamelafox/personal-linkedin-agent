@@ -12,6 +12,7 @@ This repository provides an AI-powered agent for managing personal LinkedIn acco
 * [Configuring GitHub Models](#configuring-github-models)
 * [Configuring Azure AI models](#configuring-azure-ai-models)
 * [Running the invitation manager](#running-the-invitation-manager)
+* [Cost estimate](#cost-estimate)
 * [Resources](#resources)
 
 ## Getting started
