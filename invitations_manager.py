@@ -36,6 +36,8 @@ elif API_HOST == "azure":
     )
     model = OpenAIModel(os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"], provider=OpenAIProvider(openai_client=client))
     logger.info("Using Azure OpenAI with model %s", model.model_name)
+else:
+    raise ValueError(f"Unsupported API_HOST: {API_HOST}")
 
 
 class InvitationAction(Enum):
@@ -188,7 +190,7 @@ async def process_linkedin_invitations(num_to_process: int):
                 decision_message = f"Name: {invitation.name}, Job Title: {invitation.job_title}, Profile Link: {invitation.profile}, Connection Info: {invitation.mutual_connections}."
                 agent_result = await agent.run(decision_message)
                 decision = agent_result.output
-                logger.info("%d tokens used for decision", agent_result.usage().total_tokens)
+                logger.info("%d input tokens, %d output tokens used for decision", agent_result.usage().request_tokens, agent_result.usage().response_tokens)
                 decision = await execute_action(card, decision)
 
                 # If agent is undecided, fetch more information from profile
@@ -199,7 +201,7 @@ async def process_linkedin_invitations(num_to_process: int):
                     # Ask agent again with more context
                     detailed_message = f"Full profile information for {invitation.name} ({invitation.job_title}):\n{profile_info}\n\nBased on this additional information, should we accept or ignore this invitation? Provide a reason for your decision."
                     detailed_result = await agent.run(detailed_message)
-                    logger.info("%d tokens used for decision", detailed_result.usage().total_tokens)
+                    logger.info("%d input tokens, %d output tokens used for decision", detailed_result.usage().request_tokens, detailed_result.usage().response_tokens)
                     decision = detailed_result.output
                     decision = await execute_action(card, decision)
                     logger.info(f"Agent's final decision for {invitation.name}: {decision.action} - {decision.reason}")
@@ -215,7 +217,8 @@ async def process_linkedin_invitations(num_to_process: int):
                     break
 
             # Update the last processed index
-            last_processed_index = len(invitation_cards)
+            prev_num_cards = len(invitation_cards)
+            last_processed_index = prev_num_cards
 
             if processed_count < num_to_process:
                 logger.info(f"Processed {processed_count} invitations so far. Scrolling to load more...")
@@ -228,6 +231,9 @@ async def process_linkedin_invitations(num_to_process: int):
 
                 if len(invitation_cards) == 0:
                     logger.info("No more invitations found")
+                    break
+                if len(invitation_cards) == prev_num_cards:
+                    logger.info("No additional invitations loaded after scrolling. Reached the end of the list.")
                     break
 
         # Generate report
