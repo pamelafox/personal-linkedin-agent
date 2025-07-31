@@ -6,3 +6,4 @@ dotenv-azd
 aiohttp
 playwright
 pydantic-ai
+pydantic-evals
