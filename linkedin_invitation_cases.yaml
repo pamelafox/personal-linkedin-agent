@@ -1,0 +1,103 @@
+cases:
+- name: Amina Diallo
+  inputs: 'Name: Amina Diallo, Job Title: Cloud Solution Architect | AI , Profile Link:
+    https://www.linkedin.com/in/amina-diallo-1234africa/, Connection Info: True.'
+  expected_output:
+    action: accept
+    reason: Amina Diallo has a technical role as a Cloud Solution Architect and also
+      has mutual connections.
+  metadata: {}
+- name: Lucas Kim
+  inputs: 'Name: Lucas Kim, Job Title: Senior Solution Delivery Engineer @ GitHub
+    | Facilitating development and implementation of enterprise DevSecOps strategy,
+    Profile Link: https://www.linkedin.com/in/lucas-kim-sea/, Connection Info: True.'
+  expected_output:
+    action: accept
+    reason: The individual holds a technical role as a Senior Solution Delivery Engineer
+      at GitHub and there are mutual connections.
+  metadata: {}
+- name: Priya Nair
+  inputs: 'Name: Priya Nair, Job Title: Staff Data Scientist - Applied ML at Broadcom,
+    Profile Link: https://www.linkedin.com/in/priya-nair-india/, Connection Info: True.'
+  expected_output:
+    action: accept
+    reason: Priya Nair has a technical role as a Staff Data Scientist and is a mutual
+      connection.
+  metadata: {}
+- name: Diego Alvarez
+  inputs: 'Name: Diego Alvarez, Job Title: Software | AI | Full-stack Engineer
+    | Mentor, Profile Link: https://www.linkedin.com/in/diego-alvarez-mexico/, Connection
+    Info: True.'
+  expected_output:
+    action: accept
+    reason: The person has a technical role as a Software/AI/Full-stack Engineer and
+      there are mutual connections.
+  metadata: {}
+- name: Sofia Rossi
+  inputs: 'Name: Sofia Rossi, Job Title: Founders Mode @Stealth | Machine Learning
+    Consultant | TWiML | Cohere Labs Community Lead & Researcher | Lucknow AI Labs,
+    Profile Link: https://www.linkedin.com/in/sofia-rossi-europe/, Connection Info: True.'
+  expected_output:
+    action: accept
+    reason: The person has a technical role in machine learning and AI, and there
+      is a mutual connection.
+  metadata: {}
+- name: Ethan Smith
+  inputs: 'Name: Ethan Smith, Job Title: Future of Work Architect | AI Adoption &
+    Digital Transformation Specialist | Top 50 Remote Innovator | Top 100 Future of
+    Work Leader, Profile Link: https://www.linkedin.com/in/ethan-smith-uk/, Connection
+    Info: True.'
+  expected_output:
+    action: undecided
+    reason: The profile does not explicitly mention a technical role, mutual connections
+      are not specified, and there's no mention of working at Microsoft.
+  metadata: {}
+- name: Ethan Smith (Full Profile)
+  inputs: "Full profile information for Ethan Smith (Future of Work Architect | AI\
+    \ Adoption & Digital Transformation Specialist | Top 50 Remote Innovator | Top\
+    \ 100 Future of Work Leader):\nEthan Smith\n  \n2nd degree connection\n2nd\
+    \nFuture of Work Architect | AI Adoption & Digital Transformation Specialist |\
+    Top 50 Remote Innovator | Top 100 Future of Work Leader\nGlasgow, Scotland, United\
+    Kingdom  Contact info\n\nBased on this additional information, should we accept\
+    \ or ignore this invitation? Provide a reason for your decision."
+  expected_output:
+    action: undecided
+    reason: The profile does not clearly indicate a technical role or affiliation
+      with Microsoft, nor is there mention of mutual connections. However, the title
+      suggests possible technical involvement in AI and digital transformation, making
+      it unclear if the acceptance criteria are met.
+  metadata: {}
+- name: Lila Zhang
+  inputs: 'Name: Lila Zhang, Job Title: LSE Law, Profile Link: https://www.linkedin.com/in/lila-zhang-law/, Connection Info: True.'
+  expected_output:
+    action: accept
+    reason: The invitation is accepted due to having mutual connections.
+  metadata: {}
+- name: Daniel Müller
+  inputs: 'Name: Daniel Müller, Job Title: Microsoft Azure Consultant / Architect;
+    Ex-Microsoft, Profile Link: https://www.linkedin.com/in/daniel-muller-germany/, Connection
+    Info: True.'
+  expected_output:
+    action: accept
+    reason: The person has a technical role as a Microsoft Azure Consultant / Architect
+      and has worked at Microsoft.
+  metadata: {}
+- name: Fatima El Amrani
+  inputs: 'Name: Fatima El Amrani, Job Title: Applying NLP, LLMs, Agents, Graph ML | SAP |
+    ISB | MLOPS | AI/ML | DevOps | Automation, Profile Link: https://www.linkedin.com/in/fatima-elamrani-morocco/, Connection Info: True.'
+  expected_output:
+    action: accept
+    reason: The person has a technical role and there is a mutual connection.
+  metadata: {}
+- name: Dr. Samuel Okoro
+  inputs: 'Name: Dr. Samuel Okoro, Job Title: Experienced Medical Educator @ MAcadMEd | Mentor @ ESGE & BSG | Experienced Endosonographer (i-EUS, EUSRA, TREUS, IBUS) | Endo-Pangreatobiliary Endoscopist | 3rd Space Endoscopist | Neurogastroenterologist | AI Scholar, Profile Link: https://www.linkedin.com/in/samuel-okoro-nigeria/, Connection Info: False.'
+  expected_output:
+    action: undecided
+    reason: The profile describes a medical educator and specialist in endoscopy and AI scholarship, which are not explicitly technical roles related to technology or Microsoft. No mutual connections or Microsoft affiliation is mentioned.
+  metadata: {}
+- name: Dr. Samuel Okoro (Full Profile)
+  inputs: "Full profile information for Dr. Samuel Okoro (Experienced Medical Educator @ MAcadMEd | Mentor @ ESGE & BSG | Experienced Endosonographer (i-EUS, EUSRA, TREUS, IBUS) | Endo-Pangreatobiliary Endoscopist | 3rd Space Endoscopist | Neurogastroenterologist | AI Scholar):\nDr. Samuel Okoro\n He/Him  \n3rd degree connection\n3rd\nExperienced Medical Educator @ MAcadMEd | Mentor @ ESGE & BSG | Experienced Endosonographer (i-EUS, EUSRA, TREUS, IBUS) | Endo-Pangreatobiliary Endoscopist | 3rd Space Endoscopist | Neurogastroenterologist | AI Scholar\nLagos, Nigeria  Contact info\n\nBased on this additional information, should we accept or ignore this invitation? Provide a reason for your decision."
+  expected_output:
+    action: ignore
+    reason: The individual is a medical educator and endoscopist, which are not technical roles as defined for acceptance criteria, and there are no mentions of mutual connections or employment at Microsoft.
+  metadata: {}

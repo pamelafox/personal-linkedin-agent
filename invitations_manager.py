@@ -1,9 +1,12 @@
+import argparse
 import asyncio
 import logging
 import os
 from enum import Enum
+from pathlib import Path
 
 import azure.identity
+import yaml
 from dotenv import load_dotenv
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 from pydantic import BaseModel
@@ -69,6 +72,37 @@ If you have any uncertainty at all as to whether the person meets the acceptance
 )
 
 
+async def run_and_log_agent(case_name: str, input_message: str):
+    """
+    Run the agent on the input_message, log input/output as a YAML evals case, and return the decision.
+    """
+    log_path = "linkedin_invitation_cases.yaml"
+    agent_result = await agent.run(input_message)
+    decision = agent_result.output
+    logger.info("%d input tokens, %d output tokens used for decision", agent_result.usage().request_tokens, agent_result.usage().response_tokens)
+    case = {
+        "name": case_name,
+        "inputs": input_message,
+        "expected_output": {
+            "action": decision.action.value if decision else None,
+            "reason": decision.reason if decision else None,
+        }
+        if decision
+        else None,
+        "metadata": {},
+    }
+    out_path = Path(log_path)
+    if out_path.exists():
+        with out_path.open("r", encoding="utf-8") as f:
+            dataset_dict = yaml.safe_load(f) or {"cases": []}
+    else:
+        dataset_dict = {"cases": []}
+    dataset_dict["cases"].append(case)
+    with out_path.open("w", encoding="utf-8") as f:
+        yaml.safe_dump(dataset_dict, f, sort_keys=False, allow_unicode=True)
+    return decision
+
+
 async def get_invitation_info(card) -> Invitation | None:
     # Extract profile info
     name_element = await card.query_selector("a > strong")
@@ -128,7 +162,7 @@ async def execute_action(card: ElementHandle, decision: InvitationDecision) -> I
     return decision
 
 
-async def process_linkedin_invitations(num_to_process: int):
+async def process_linkedin_invitations(num_to_process: int, record_eval_cases: bool = False):
     logger.info("Starting LinkedIn invitation processing...")
     results = []
     processed_count = 0
@@ -188,9 +222,13 @@ async def process_linkedin_invitations(num_to_process: int):
                     continue
 
                 decision_message = f"Name: {invitation.name}, Job Title: {invitation.job_title}, Profile Link: {invitation.profile}, Connection Info: {invitation.mutual_connections}."
-                agent_result = await agent.run(decision_message)
-                decision = agent_result.output
-                logger.info("%d input tokens, %d output tokens used for decision", agent_result.usage().request_tokens, agent_result.usage().response_tokens)
+
+                if record_eval_cases:
+                    decision = await run_and_log_agent(invitation.name, decision_message)
+                else:
+                    agent_result = await agent.run(decision_message)
+                    decision = agent_result.output
+                    logger.info("%d input tokens, %d output tokens used for decision", agent_result.usage().request_tokens, agent_result.usage().response_tokens)
                 decision = await execute_action(card, decision)
 
                 # If agent is undecided, fetch more information from profile
@@ -200,9 +238,13 @@ async def process_linkedin_invitations(num_to_process: int):
 
                     # Ask agent again with more context
                     detailed_message = f"Full profile information for {invitation.name} ({invitation.job_title}):\n{profile_info}\n\nBased on this additional information, should we accept or ignore this invitation? Provide a reason for your decision."
-                    detailed_result = await agent.run(detailed_message)
-                    logger.info("%d input tokens, %d output tokens used for decision", detailed_result.usage().request_tokens, detailed_result.usage().response_tokens)
-                    decision = detailed_result.output
+
+                    if record_eval_cases:
+                        decision = await run_and_log_agent(invitation.name, detailed_message)
+                    else:
+                        detailed_result = await agent.run(detailed_message)
+                        decision = detailed_result.output
+                        logger.info("%d input tokens, %d output tokens used for decision", detailed_result.usage().request_tokens, detailed_result.usage().response_tokens)
                     decision = await execute_action(card, decision)
                     logger.info(f"Agent's final decision for {invitation.name}: {decision.action} - {decision.reason}")
 
@@ -259,14 +301,11 @@ async def process_linkedin_invitations(num_to_process: int):
         # Close the browser
         await browser.close()
 
-    return results
-
 
 if __name__ == "__main__":
-    import argparse
-
     parser = argparse.ArgumentParser(description="Process LinkedIn invitations.")
     parser.add_argument("--num-to-process", type=int, default=10, help="Number of LinkedIn invitations to process (default: 10).")
+    parser.add_argument("--record-eval-cases", action="store_true", help="Record eval cases to YAML file.")
     args = parser.parse_args()
 
-    asyncio.run(process_linkedin_invitations(args.num_to_process))
+    asyncio.run(process_linkedin_invitations(args.num_to_process, record_eval_cases=args.record_eval_cases))
