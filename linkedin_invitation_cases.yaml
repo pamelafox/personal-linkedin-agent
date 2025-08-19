@@ -7,6 +7,12 @@ cases:
     reason: Amina Diallo has a technical role as a Cloud Solution Architect and also
       has mutual connections.
   metadata: {}
+- name: Alexis Carter
+  inputs: 'Name: Alexis Carter, Job Title: Founder @ Techie Staffing. Engineer, Techie, Nerdie & Coder who places Tech Talent!, Profile Link: https://www.linkedin.com/in/annaspearman/, Connection Info: False.'
+  expected_output:
+    action: ignore
+    reason: The individual works as a recruiter.
+  metadata: {}
 - name: Lucas Kim
   inputs: 'Name: Lucas Kim, Job Title: Senior Solution Delivery Engineer @ GitHub
     | Facilitating development and implementation of enterprise DevSecOps strategy,
