@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     name: template validation
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: microsoft/template-validation-action@v0.4.3
         env:
