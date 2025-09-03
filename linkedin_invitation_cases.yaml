@@ -7,6 +7,12 @@ cases:
     reason: Amina Diallo has a technical role as a Cloud Solution Architect and also
       has mutual connections.
   metadata: {}
+- name: Alexis Carter
+  inputs: 'Name: Alexis Carter, Job Title: Founder @ Techie Staffing. Engineer, Techie, Nerdie & Coder who places Tech Talent!, Profile Link: https://www.linkedin.com/in/annaspearman/, Connection Info: False.'
+  expected_output:
+    action: ignore
+    reason: The individual works as a recruiter.
+  metadata: {}
 - name: Lucas Kim
   inputs: 'Name: Lucas Kim, Job Title: Senior Solution Delivery Engineer @ GitHub
     | Facilitating development and implementation of enterprise DevSecOps strategy,
@@ -100,4 +106,16 @@ cases:
   expected_output:
     action: ignore
     reason: The individual is a medical educator and endoscopist, which are not technical roles as defined for acceptance criteria, and there are no mentions of mutual connections or employment at Microsoft.
+  metadata: {}
+- name: Juan Serrano
+  inputs: 'Name:  Juan Serrano, Job Title: Securing the hiring pipeline, Profile Link: https://www.linkedin.com/in/juan-serran0000/, Connection Info: False.'
+  expected_output:
+    action: undecided
+    reason: The profile does not provide enough information to determine if the person has a technical role or a recruiter, since "securing" could imply a technical role. We need to see the full profile.
+  metadata: {}
+- name: Mick Crick
+  inputs: 'Name: Mick Crick, Job Title: Technical Recruiter, Profile Link: https://www.linkedin.com/in/mick-cr1111ck/, Connection Info: False.'
+  expected_output:
+    action: ignore
+    reason: The person is a recruiter, and the criteria specify to ignore recruiters.
   metadata: {}

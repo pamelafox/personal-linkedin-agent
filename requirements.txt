@@ -5,5 +5,5 @@ rich
 dotenv-azd
 aiohttp
 playwright
-pydantic-ai
+pydantic-ai==1.0.0b1
 pydantic-evals

@@ -132,6 +132,10 @@ This project includes infrastructure as code (IaC) to provision an Azure OpenAI 
 
 You can run the LinkedIn agent by executing the `invitations_manager.py` script. The agent will process LinkedIn invitations based on the decision logic defined in the code.
 
+## Running evaluations
+
+This project includes evaluations using Pydantic-AI evals to measure the agent's performance. You can run the evaluations by executing the `evals.py` script.
+
 ## Cost estimate
 
 On average, each LinkedIn invitation processed by the agent requires approximately 200 tokens. If the agent decides it needs to open the full profile page to gather more information, it requires an additional 400 tokens on average.

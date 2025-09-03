@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 from pydantic import BaseModel
 from pydantic_ai import Agent, NativeOutput
-from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from rich.logging import RichHandler
 
@@ -28,7 +28,7 @@ API_HOST = os.getenv("API_HOST", "github")
 
 if API_HOST == "github":
     client = AsyncOpenAI(api_key=os.environ["GITHUB_TOKEN"], base_url="https://models.inference.ai.azure.com")
-    model = OpenAIModel(os.getenv("GITHUB_MODEL", "gpt-4o"), provider=OpenAIProvider(openai_client=client))
+    model = OpenAIChatModel(os.getenv("GITHUB_MODEL", "gpt-4o"), provider=OpenAIProvider(openai_client=client))
     logger.info("Using GitHub Models with model %s", model.model_name)
 elif API_HOST == "azure":
     token_provider = azure.identity.get_bearer_token_provider(azure.identity.DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
@@ -37,7 +37,7 @@ elif API_HOST == "azure":
         azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
         azure_ad_token_provider=token_provider,
     )
-    model = OpenAIModel(os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"], provider=OpenAIProvider(openai_client=client))
+    model = OpenAIChatModel(os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"], provider=OpenAIProvider(openai_client=client))
     logger.info("Using Azure OpenAI with model %s", model.model_name)
 else:
     raise ValueError(f"Unsupported API_HOST: {API_HOST}")
@@ -79,7 +79,7 @@ async def run_and_log_agent(case_name: str, input_message: str):
     log_path = "linkedin_invitation_cases.yaml"
     agent_result = await agent.run(input_message)
     decision = agent_result.output
-    logger.info("%d input tokens, %d output tokens used for decision", agent_result.usage().request_tokens, agent_result.usage().response_tokens)
+    logger.info("%d input tokens, %d output tokens used for decision", agent_result.usage().input_tokens, agent_result.usage().output_tokens)
     case = {
         "name": case_name,
         "inputs": input_message,
@@ -108,7 +108,7 @@ async def get_invitation_info(card) -> Invitation | None:
     name_element = await card.query_selector("a > strong")
     if not name_element:
         return None
-    name = await name_element.inner_text()
+    name = (await name_element.inner_text()).strip()
 
     # Get profile link
     profile_link_element = await card.query_selector("a")
@@ -116,13 +116,13 @@ async def get_invitation_info(card) -> Invitation | None:
     if not profile_link.startswith("http"):
         profile_link = f"https://www.linkedin.com{profile_link}"
 
-    # Get job title
+    # Get job title (single selector assumption)
     job_title_element = await card.query_selector("p:nth-of-type(2)")
-    job_title = await job_title_element.inner_text() if job_title_element else "Unknown"
+    job_title = (await job_title_element.inner_text()).strip() if job_title_element else "Unknown"
 
-    # Check for mutual connections
+    # Check for mutual connections (single phrase)
     connection_info_element = await card.query_selector("*:has-text('mutual connection')")
-    connection_info = await connection_info_element.inner_text() if connection_info_element else ""
+    connection_info = (await connection_info_element.inner_text()).strip() if connection_info_element else ""
     has_mutual_connections = "mutual connection" in connection_info.lower()
     return Invitation(name=name, profile=profile_link, job_title=job_title, mutual_connections=has_mutual_connections)
 
@@ -200,25 +200,43 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
         await page.goto("https://www.linkedin.com/mynetwork/invitation-manager/")
         await page.wait_for_load_state("load")
 
-        # Process invitations using the componentkey selectors from the screenshot
-        await page.wait_for_selector("[componentkey='InvitationManagerPage_InvitationsList']")
-        invitation_cards = await page.query_selector_all("[componentkey='InvitationManagerPage_InvitationsList'] > div[componentkey^='auto-component-']")
-        logger.info(f"Found {len(invitation_cards)} initial invitation cards")
+        async def get_invitation_cards() -> list[ElementHandle]:
+            primary_selector = "div[role='main'] div[componentkey^='auto-component-']:has(button[aria-label*='Accept'])"
+            cards = await page.query_selector_all(primary_selector)
+            if not cards:
+                html_snippet = (await page.content())[:2000]
+                logger.warning("No invitation cards found with primary selector. HTML snippet (2k chars): %s", html_snippet)
+            return cards
 
-        # Initialize the last processed index
-        last_processed_index = 0
+        # Wait for the main region to be present
+        await page.wait_for_selector("div[role='main']")
+        invitation_cards = await get_invitation_cards()
+        logger.info(f"Found {len(invitation_cards)} initial invitation card candidates")
 
-        while processed_count < num_to_process and len(invitation_cards) > 0:
-            for index, card in enumerate(invitation_cards):
-                # Skip cards that have already been processed
-                if index < last_processed_index:
-                    continue
+        # New approach: track processed profile URLs and detect progress by appearance of any new unprocessed cards.
+        processed_profiles: set[str] = set()
+        consecutive_no_new_scrolls = 0
+        max_no_new_scrolls = 5  # fail-safe to avoid infinite loop
 
+        while processed_count < num_to_process:
+            # Always fetch the current set of visible cards (DOM changes remove accepted/ignored ones)
+            invitation_cards = await get_invitation_cards()
+            if not invitation_cards:
+                logger.info("No invitation cards currently visible.")
+                break
+
+            new_card_processed_this_pass = False
+
+            for card in invitation_cards:
                 if processed_count >= num_to_process:
                     break
 
                 invitation = await get_invitation_info(card)
                 if not invitation:
+                    continue
+
+                # Skip duplicates (already processed or re-rendered after accept/ignore)
+                if invitation.profile in processed_profiles:
                     continue
 
                 decision_message = f"Name: {invitation.name}, Job Title: {invitation.job_title}, Profile Link: {invitation.profile}, Connection Info: {invitation.mutual_connections}."
@@ -228,55 +246,58 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
                 else:
                     agent_result = await agent.run(decision_message)
                     decision = agent_result.output
-                    logger.info("%d input tokens, %d output tokens used for decision", agent_result.usage().request_tokens, agent_result.usage().response_tokens)
+                    logger.debug(
+                        "%d input tokens, %d output tokens used for decision",
+                        agent_result.usage().input_tokens,
+                        agent_result.usage().output_tokens,
+                    )
                 decision = await execute_action(card, decision)
 
                 # If agent is undecided, fetch more information from profile
                 if decision.action == InvitationAction.UNDECIDED:
                     logger.info(f"Agent is undecided about {invitation.name}. Fetching profile information...")
                     profile_info = await get_profile_info(page, invitation.profile)
-
-                    # Ask agent again with more context
-                    detailed_message = f"Full profile information for {invitation.name} ({invitation.job_title}):\n{profile_info}\n\nBased on this additional information, should we accept or ignore this invitation? Provide a reason for your decision."
-
+                    detailed_message = (
+                        f"Full profile information for {invitation.name} ({invitation.job_title}):\n{profile_info}\n\n"
+                        f"Based on this additional information, should we accept or ignore this invitation? Provide a reason for your decision."
+                    )
                     if record_eval_cases:
                         decision = await run_and_log_agent(invitation.name, detailed_message)
                     else:
                         detailed_result = await agent.run(detailed_message)
                         decision = detailed_result.output
-                        logger.info("%d input tokens, %d output tokens used for decision", detailed_result.usage().request_tokens, detailed_result.usage().response_tokens)
+                        logger.debug(
+                            "%d input tokens, %d output tokens used for decision",
+                            detailed_result.usage().input_tokens,
+                            detailed_result.usage().output_tokens,
+                        )
                     decision = await execute_action(card, decision)
-                    logger.info(f"Agent's final decision for {invitation.name}: {decision.action} - {decision.reason}")
+                    logger.info(f"Agent's final decision for {invitation.name}: {decision.action} - {getattr(decision, 'reason', '')}")
 
                 invitation.decision = decision
                 results.append(invitation)
+                processed_profiles.add(invitation.profile)
                 processed_count += 1
+                new_card_processed_this_pass = True
 
-                # Small delay to avoid rate limiting
+                # Small delay to avoid rate limiting / allow DOM to settle
                 await asyncio.sleep(1)
 
-                if processed_count >= num_to_process:
+            if processed_count >= num_to_process:
+                break
+
+            if not new_card_processed_this_pass:
+                consecutive_no_new_scrolls += 1
+                logger.info(f"No new unprocessed invitations visible (attempt {consecutive_no_new_scrolls}/{max_no_new_scrolls}). Scrolling for more...")
+                await page.evaluate("window.scrollBy(0, window.innerHeight * 0.9)")
+                await asyncio.sleep(2)
+                if consecutive_no_new_scrolls >= max_no_new_scrolls:
+                    logger.info("Reached maximum scroll attempts without discovering new invitations. Stopping.")
                     break
-
-            # Update the last processed index
-            prev_num_cards = len(invitation_cards)
-            last_processed_index = prev_num_cards
-
-            if processed_count < num_to_process:
-                logger.info(f"Processed {processed_count} invitations so far. Scrolling to load more...")
-                # Scroll down to load more
-                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                await asyncio.sleep(2)  # Wait for new cards to load
-
-                # Get updated cards
-                invitation_cards = await page.query_selector_all("[componentkey='InvitationManagerPage_InvitationsList'] > div[componentkey^='auto-component-']")
-
-                if len(invitation_cards) == 0:
-                    logger.info("No more invitations found")
-                    break
-                if len(invitation_cards) == prev_num_cards:
-                    logger.info("No additional invitations loaded after scrolling. Reached the end of the list.")
-                    break
+            else:
+                # Reset counter if we made progress this pass
+                consecutive_no_new_scrolls = 0
+                logger.info(f"Processed {processed_count} invitations so far. Continuing to look for more until we reach {num_to_process}.")
 
         # Generate report
         logger.info("\n=== LinkedIn Invitation Processing Report ===")
