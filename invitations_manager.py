@@ -239,7 +239,7 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
                 if invitation.profile in processed_profiles:
                     continue
 
-                decision_message = f"Name: {invitation.name}, Job Title: {invitation.job_title}, " f"Profile Link: {invitation.profile}, Connection Info: {invitation.mutual_connections}."
+                decision_message = f"Name: {invitation.name}, Job Title: {invitation.job_title}, Profile Link: {invitation.profile}, Connection Info: {invitation.mutual_connections}."
 
                 if record_eval_cases:
                     decision = await run_and_log_agent(invitation.name, decision_message)
