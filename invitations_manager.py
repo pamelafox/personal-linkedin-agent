@@ -108,7 +108,7 @@ async def get_invitation_info(card) -> Invitation | None:
     name_element = await card.query_selector("a > strong")
     if not name_element:
         return None
-    name = await name_element.inner_text()
+    name = (await name_element.inner_text()).strip()
 
     # Get profile link
     profile_link_element = await card.query_selector("a")
@@ -116,13 +116,13 @@ async def get_invitation_info(card) -> Invitation | None:
     if not profile_link.startswith("http"):
         profile_link = f"https://www.linkedin.com{profile_link}"
 
-    # Get job title
+    # Get job title (single selector assumption)
     job_title_element = await card.query_selector("p:nth-of-type(2)")
-    job_title = await job_title_element.inner_text() if job_title_element else "Unknown"
+    job_title = (await job_title_element.inner_text()).strip() if job_title_element else "Unknown"
 
-    # Check for mutual connections
+    # Check for mutual connections (single phrase)
     connection_info_element = await card.query_selector("*:has-text('mutual connection')")
-    connection_info = await connection_info_element.inner_text() if connection_info_element else ""
+    connection_info = (await connection_info_element.inner_text()).strip() if connection_info_element else ""
     has_mutual_connections = "mutual connection" in connection_info.lower()
     return Invitation(name=name, profile=profile_link, job_title=job_title, mutual_connections=has_mutual_connections)
 
@@ -200,10 +200,18 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
         await page.goto("https://www.linkedin.com/mynetwork/invitation-manager/")
         await page.wait_for_load_state("load")
 
-        # Process invitations using the componentkey selectors from the screenshot
-        await page.wait_for_selector("[componentkey='InvitationManagerPage_InvitationsList']")
-        invitation_cards = await page.query_selector_all("[componentkey='InvitationManagerPage_InvitationsList'] > div[componentkey^='auto-component-']")
-        logger.info(f"Found {len(invitation_cards)} initial invitation cards")
+        async def get_invitation_cards() -> list[ElementHandle]:
+            primary_selector = "div[role='main'] div[componentkey^='auto-component-']:has(button[aria-label*='Accept'])"
+            cards = await page.query_selector_all(primary_selector)
+            if not cards:
+                html_snippet = (await page.content())[:2000]
+                logger.warning("No invitation cards found with primary selector. HTML snippet (2k chars): %s", html_snippet)
+            return cards
+
+        # Wait for the main region to be present
+        await page.wait_for_selector("div[role='main']")
+        invitation_cards = await get_invitation_cards()
+        logger.info(f"Found {len(invitation_cards)} initial invitation card candidates")
 
         # Initialize the last processed index
         last_processed_index = 0
@@ -269,7 +277,7 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
                 await asyncio.sleep(2)  # Wait for new cards to load
 
                 # Get updated cards
-                invitation_cards = await page.query_selector_all("[componentkey='InvitationManagerPage_InvitationsList'] > div[componentkey^='auto-component-']")
+                invitation_cards = await get_invitation_cards()
 
                 if len(invitation_cards) == 0:
                     logger.info("No more invitations found")
