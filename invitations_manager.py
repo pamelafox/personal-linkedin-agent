@@ -257,7 +257,10 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
                 if decision.action == InvitationAction.UNDECIDED:
                     logger.info(f"Agent is undecided about {invitation.name}. Fetching profile information...")
                     profile_info = await get_profile_info(page, invitation.profile)
-                    detailed_message = f"Full profile information for {invitation.name} ({invitation.job_title}):\n{profile_info}\n\n" "Based on this additional information, should we accept or ignore this invitation? Provide a reason for your decision."
+                    detailed_message = (
+                        f"Full profile information for {invitation.name} ({invitation.job_title}):\n{profile_info}\n\n"
+                        f"Based on this additional information, should we accept or ignore this invitation? Provide a reason for your decision."
+                    )
                     if record_eval_cases:
                         decision = await run_and_log_agent(invitation.name, detailed_message)
                     else:
