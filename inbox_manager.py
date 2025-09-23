@@ -4,14 +4,13 @@ import os
 
 import azure.identity
 from dotenv import load_dotenv
-from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai import AsyncOpenAI
+from playwright.async_api import Page, async_playwright
 from pydantic import BaseModel
 from pydantic_ai import Agent, NativeOutput
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from rich.logging import RichHandler
-
-from playwright.async_api import Page, async_playwright
 
 # Setup logging with rich
 logging.basicConfig(level=logging.WARNING, format="%(message)s", datefmt="[%X]", handlers=[RichHandler(show_level=True)])
@@ -28,10 +27,9 @@ if API_HOST == "github":
     logger.info("Using GitHub Models with model %s", model.model_name)
 elif API_HOST == "azure":
     token_provider = azure.identity.get_bearer_token_provider(azure.identity.DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
-    client = AsyncAzureOpenAI(
-        api_version=os.environ["AZURE_OPENAI_VERSION"],
-        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-        azure_ad_token_provider=token_provider,
+    client = AsyncOpenAI(
+        base_url=os.environ["AZURE_OPENAI_ENDPOINT"],
+        api_key=token_provider,
     )
     model = OpenAIModel(os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"], provider=OpenAIProvider(openai_client=client))
     logger.info("Using Azure OpenAI with model %s", model.model_name)
