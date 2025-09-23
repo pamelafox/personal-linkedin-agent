@@ -31,7 +31,7 @@ if API_HOST == "github":
     model = OpenAIChatModel(os.getenv("GITHUB_MODEL", "gpt-4o"), provider=OpenAIProvider(openai_client=client))
     logger.info("Using GitHub Models with model %s", model.model_name)
 elif API_HOST == "azure":
-    token_provider = azure.identity.aio.get_bearer_token_provider(azure.identity.aio.DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
+    token_provider = azure.identity.aio.get_bearer_token_provider(azure.identity.aio.AzureDeveloperCliCredential(tenant_id=os.environ["AZURE_TENANT_ID"]), "https://cognitiveservices.azure.com/.default")
     client = AsyncOpenAI(
         base_url=os.environ["AZURE_OPENAI_ENDPOINT"] + "/openai/v1",
         api_key=token_provider,
@@ -103,26 +103,68 @@ async def run_and_log_agent(case_name: str, input_message: str):
 
 
 async def get_invitation_info(card) -> Invitation | None:
-    # Extract profile info
-    name_element = await card.query_selector("a > strong")
-    if not name_element:
-        return None
-    name = (await name_element.inner_text()).strip()
+    def first_non_empty_line(text: str) -> str:
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped:
+                return stripped
+        return text.strip()
 
-    # Get profile link
-    profile_link_element = await card.query_selector("a")
-    profile_link = await profile_link_element.get_attribute("href") if profile_link_element else "Unknown"
+    # Fetch the primary profile link (most cards link to /in/ profiles)
+    profile_link_element = await card.query_selector("a[href*='/in/']")
+    if not profile_link_element:
+        profile_link_element = await card.query_selector("a")
+    if not profile_link_element:
+        return None
+
+    profile_link = await profile_link_element.get_attribute("href")
+    if not profile_link:
+        return None
     if not profile_link.startswith("http"):
         profile_link = f"https://www.linkedin.com{profile_link}"
 
-    # Get job title (single selector assumption)
-    job_title_element = await card.query_selector("p:nth-of-type(2)")
-    job_title = (await job_title_element.inner_text()).strip() if job_title_element else "Unknown"
+    # Resolve the invitee name from a list of possible selectors (new follower layout lacks <strong>)
+    name_selectors = [
+        "a > strong",
+        "a span[aria-hidden='true']",
+        "span[aria-hidden='true']",
+        "span[dir='auto']",
+    ]
+    name = ""
+    for selector in name_selectors:
+        element = await card.query_selector(selector)
+        if element:
+            text = (await element.inner_text()).strip()
+            if text:
+                name = first_non_empty_line(text)
+                break
+    if not name:
+        link_text = (await profile_link_element.inner_text()).strip()
+        if link_text:
+            name = first_non_empty_line(link_text)
+    if not name:
+        return None
+
+    # Job title may appear in different elements depending on layout
+    job_title_selectors = [
+        "p:nth-of-type(2)",
+        "span.t-14",
+        "div.artdeco-entity-lockup__subtitle span",
+    ]
+    job_title = "Unknown"
+    for selector in job_title_selectors:
+        element = await card.query_selector(selector)
+        if element:
+            text = (await element.inner_text()).strip()
+            if text:
+                job_title = first_non_empty_line(text)
+                break
 
     # Check for mutual connections (single phrase)
     connection_info_element = await card.query_selector("*:has-text('mutual connection')")
     connection_info = (await connection_info_element.inner_text()).strip() if connection_info_element else ""
     has_mutual_connections = "mutual connection" in connection_info.lower()
+
     return Invitation(name=name, profile=profile_link, job_title=job_title, mutual_connections=has_mutual_connections)
 
 
