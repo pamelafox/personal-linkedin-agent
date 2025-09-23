@@ -8,14 +8,13 @@ from pathlib import Path
 import azure.identity
 import yaml
 from dotenv import load_dotenv
-from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai import AsyncOpenAI
+from playwright.async_api import ElementHandle, Page, async_playwright
 from pydantic import BaseModel
 from pydantic_ai import Agent, NativeOutput
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from rich.logging import RichHandler
-
-from playwright.async_api import ElementHandle, Page, async_playwright
 
 # Setup logging with rich
 logging.basicConfig(level=logging.WARNING, format="%(message)s", datefmt="[%X]", handlers=[RichHandler(show_level=True)])
@@ -32,10 +31,9 @@ if API_HOST == "github":
     logger.info("Using GitHub Models with model %s", model.model_name)
 elif API_HOST == "azure":
     token_provider = azure.identity.get_bearer_token_provider(azure.identity.DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
-    client = AsyncAzureOpenAI(
-        api_version=os.environ["AZURE_OPENAI_VERSION"],
-        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-        azure_ad_token_provider=token_provider,
+    client = AsyncOpenAI(
+        base_url=os.environ["AZURE_OPENAI_ENDPOINT"],
+        api_key=token_provider,
     )
     model = OpenAIChatModel(os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"], provider=OpenAIProvider(openai_client=client))
     logger.info("Using Azure OpenAI with model %s", model.model_name)
@@ -257,10 +255,7 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
                 if decision.action == InvitationAction.UNDECIDED:
                     logger.info(f"Agent is undecided about {invitation.name}. Fetching profile information...")
                     profile_info = await get_profile_info(page, invitation.profile)
-                    detailed_message = (
-                        f"Full profile information for {invitation.name} ({invitation.job_title}):\n{profile_info}\n\n"
-                        f"Based on this additional information, should we accept or ignore this invitation? Provide a reason for your decision."
-                    )
+                    detailed_message = f"Full profile information for {invitation.name} ({invitation.job_title}):\n{profile_info}\n\nBased on this additional information, should we accept or ignore this invitation? Provide a reason for your decision."
                     if record_eval_cases:
                         decision = await run_and_log_agent(invitation.name, detailed_message)
                     else:
