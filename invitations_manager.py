@@ -5,16 +5,17 @@ import os
 from enum import Enum
 from pathlib import Path
 
-import azure.identity
+import azure.identity.aio
 import yaml
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
-from playwright.async_api import ElementHandle, Page, async_playwright
 from pydantic import BaseModel
 from pydantic_ai import Agent, NativeOutput
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from rich.logging import RichHandler
+
+from playwright.async_api import ElementHandle, Page, async_playwright
 
 # Setup logging with rich
 logging.basicConfig(level=logging.WARNING, format="%(message)s", datefmt="[%X]", handlers=[RichHandler(show_level=True)])
@@ -30,9 +31,9 @@ if API_HOST == "github":
     model = OpenAIChatModel(os.getenv("GITHUB_MODEL", "gpt-4o"), provider=OpenAIProvider(openai_client=client))
     logger.info("Using GitHub Models with model %s", model.model_name)
 elif API_HOST == "azure":
-    token_provider = azure.identity.get_bearer_token_provider(azure.identity.DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
+    token_provider = azure.identity.aio.get_bearer_token_provider(azure.identity.aio.DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
     client = AsyncOpenAI(
-        base_url=os.environ["AZURE_OPENAI_ENDPOINT"],
+        base_url=os.environ["AZURE_OPENAI_ENDPOINT"] + "/openai/v1",
         api_key=token_provider,
     )
     model = OpenAIChatModel(os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"], provider=OpenAIProvider(openai_client=client))
