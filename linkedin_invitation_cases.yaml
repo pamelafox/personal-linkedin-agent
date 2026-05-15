@@ -119,3 +119,9 @@ cases:
     action: ignore
     reason: The person is a recruiter, and the criteria specify to ignore recruiters.
   metadata: {}
+- name: Anita Sharma
+  inputs: 'Name: Anita Sharma, Job Title: Helping senior execs, tech professionals and communications experts protect, grow, and preserve their wealth. We specialize in equity based benefits packages:(RSU, ISO, NSO, ESPP, Def Comp) | Microsoft/Apple/Google, Profile Link: https://www.linkedin.com/in/anita-sharma-finance/, Connection Info: False.'
+  expected_output:
+    action: ignore
+    reason: The person is a financial advisor, and the criteria specify to ignore financial advisors.
+  metadata: {}

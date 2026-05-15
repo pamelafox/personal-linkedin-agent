@@ -4,6 +4,7 @@ import logging
 import os
 from enum import Enum
 from pathlib import Path
+from urllib.parse import unquote, urlparse, urlunparse
 
 import azure.identity.aio
 import yaml
@@ -64,8 +65,8 @@ class Invitation(BaseModel):
 agent = Agent(
     model,
     system_prompt="""Decide whether to accept or ignore LinkedIn invitations based on the profile information provided.
-Accept if the person has a technical role or mutual connections or works at Microsoft.
-Ignore if they are a recruiter.
+Accept if the person has a technical role, or is a student studying Computer Science, Data Science, or Machine Learning, or has mutual connections, or works at Microsoft.
+Ignore if they are a recruiter or a financial advisor.
 If you have any uncertainty at all as to whether the person meets the acceptance criteria, respond with 'undecided'.""",
     output_type=NativeOutput(InvitationDecision),
 )
@@ -122,6 +123,10 @@ async def get_invitation_info(card) -> Invitation | None:
         return None
     if not profile_link.startswith("http"):
         profile_link = f"https://www.linkedin.com{profile_link}"
+    # Normalize URL: decode any percent-encoded characters to get clean URL
+    parsed = urlparse(profile_link)
+    decoded_path = unquote(parsed.path)
+    profile_link = urlunparse(parsed._replace(path=decoded_path))
 
     # Resolve the invitee name from a list of possible selectors (new follower layout lacks <strong>)
     name_selectors = [
@@ -185,7 +190,7 @@ async def get_profile_info(page: Page, profile_url: str) -> str:
     return profile_text
 
 
-async def execute_action(card: ElementHandle, decision: InvitationDecision) -> InvitationDecision:
+async def execute_action(page: Page, card: ElementHandle, decision: InvitationDecision) -> InvitationDecision:
     if decision.action == InvitationAction.ACCEPT:
         accept_button = await card.query_selector("button[aria-label*='Accept']")
         if accept_button:
@@ -203,7 +208,7 @@ async def execute_action(card: ElementHandle, decision: InvitationDecision) -> I
     return decision
 
 
-async def process_linkedin_invitations(num_to_process: int, record_eval_cases: bool = False):
+async def process_linkedin_invitations(num_to_process: int, record_eval_cases: bool = False, headless: bool = False):
     logger.info("Starting LinkedIn invitation processing...")
     results = []
     processed_count = 0
@@ -219,7 +224,7 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
 
     async with async_playwright() as p:
         # Launch browser
-        browser = await p.chromium.launch(headless=False)
+        browser = await p.chromium.launch(headless=headless)
         context = await browser.new_context(storage_state="playwright/.auth/state.json")
 
         # Create a new page
@@ -242,7 +247,7 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
         await page.wait_for_load_state("load")
 
         async def get_invitation_cards() -> list[ElementHandle]:
-            primary_selector = "div[role='main'] div[componentkey^='auto-component-']:has(button[aria-label*='Accept'])"
+            primary_selector = "main div[componentkey^='auto-component-']:has(button[aria-label*='Accept'])"
             cards = await page.query_selector_all(primary_selector)
             if not cards:
                 html_snippet = (await page.content())[:2000]
@@ -250,7 +255,7 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
             return cards
 
         # Wait for the main region to be present
-        await page.wait_for_selector("div[role='main']")
+        await page.wait_for_selector("main#workspace, main, div[role='main']")
         invitation_cards = await get_invitation_cards()
         logger.info(f"Found {len(invitation_cards)} initial invitation card candidates")
 
@@ -292,7 +297,7 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
                         agent_result.usage().input_tokens,
                         agent_result.usage().output_tokens,
                     )
-                decision = await execute_action(card, decision)
+                decision = await execute_action(page, card, decision)
 
                 # If agent is undecided, fetch more information from profile
                 if decision.action == InvitationAction.UNDECIDED:
@@ -309,7 +314,7 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
                             detailed_result.usage().input_tokens,
                             detailed_result.usage().output_tokens,
                         )
-                    decision = await execute_action(card, decision)
+                    decision = await execute_action(page, card, decision)
                     logger.info(f"Agent's final decision for {invitation.name}: {decision.action} - {getattr(decision, 'reason', '')}")
 
                 invitation.decision = decision
@@ -365,6 +370,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process LinkedIn invitations.")
     parser.add_argument("--num-to-process", type=int, default=10, help="Number of LinkedIn invitations to process (default: 10).")
     parser.add_argument("--record-eval-cases", action="store_true", help="Record eval cases to YAML file.")
+    parser.add_argument("--headless", action="store_true", help="Run browser in headless mode.")
     args = parser.parse_args()
 
-    asyncio.run(process_linkedin_invitations(args.num_to_process, record_eval_cases=args.record_eval_cases))
+    asyncio.run(process_linkedin_invitations(args.num_to_process, record_eval_cases=args.record_eval_cases, headless=args.headless))
