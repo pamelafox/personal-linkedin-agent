@@ -41,15 +41,15 @@ param environmentName string
 param location string
 
 @description('Name of the GPT model to deploy')
-param gptModelName string = 'gpt-4o'
+param gptModelName string = 'gpt-5.5'
 
 @description('Version of the GPT model to deploy')
 // See version availability in this table:
 // https://learn.microsoft.com/azure/ai-services/openai/concepts/models?tabs=python-secure%2Cglobal-standard%2Cstandard-chat-completions#models-by-deployment-type
-param gptModelVersion string = '2024-08-06'
+param gptModelVersion string = '2026-04-24'
 
 @description('Name of the model deployment (can be different from the model name)')
-param gptDeploymentName string = 'gpt-4o'
+param gptDeploymentName string = 'gpt-5.5'
 
 @description('Capacity of the GPT deployment')
 // You can increase this, but capacity is limited per model/region, so you will get errors if you go over
