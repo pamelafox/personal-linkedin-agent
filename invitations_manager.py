@@ -10,13 +10,12 @@ import azure.identity.aio
 import yaml
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
+from playwright.async_api import ElementHandle, Page, async_playwright
 from pydantic import BaseModel
 from pydantic_ai import Agent, NativeOutput
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from rich.logging import RichHandler
-
-from playwright.async_api import ElementHandle, Page, async_playwright
 
 # Setup logging with rich
 logging.basicConfig(level=logging.WARNING, format="%(message)s", datefmt="[%X]", handlers=[RichHandler(show_level=True)])
@@ -67,6 +66,7 @@ agent = Agent(
     system_prompt="""Decide whether to accept or ignore LinkedIn invitations based on the profile information provided.
 Accept if the person has a technical role, or is a student studying Computer Science, Data Science, or Machine Learning, or has mutual connections, or works at Microsoft.
 Ignore if they are a recruiter or a financial advisor.
+Ignore any profile that appears to be a coach (for example: coach, coaching, life coach, executive coach, career coach, leadership coach, mindset coach, sales coach).
 If you have any uncertainty at all as to whether the person meets the acceptance criteria, respond with 'undecided'.""",
     output_type=NativeOutput(InvitationDecision),
 )

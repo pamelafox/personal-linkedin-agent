@@ -125,3 +125,9 @@ cases:
     action: ignore
     reason: The person is a financial advisor, and the criteria specify to ignore financial advisors.
   metadata: {}
+- name: Evan Mercer
+  inputs: 'Name: Evan Mercer, Job Title: Executive Coach | Leadership Coach for Tech Professionals, Profile Link: https://www.linkedin.com/in/conor-clarke-coach/, Connection Info: True.'
+  expected_output:
+    action: ignore
+    reason: The profile is for a coach, and coach profiles should be ignored even with mutual connections.
+  metadata: {}
