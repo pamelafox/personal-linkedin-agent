@@ -126,8 +126,26 @@ cases:
     reason: The person is a financial advisor, and the criteria specify to ignore financial advisors.
   metadata: {}
 - name: Evan Mercer
-  inputs: 'Name: Evan Mercer, Job Title: Executive Coach | Leadership Coach for Tech Professionals, Profile Link: https://www.linkedin.com/in/conor-clarke-coach/, Connection Info: True.'
+  inputs: 'Name: Evan Mercer, Job Title: Executive Coach | Leadership Coach for Tech Professionals, Profile Link: https://www.linkedin.com/in/evan-mercer-coach/, Connection Info: True.'
   expected_output:
     action: ignore
     reason: The profile is for a coach, and coach profiles should be ignored even with mutual connections.
+  metadata: {}
+- name: Maya Chen
+  inputs: 'Name: Maya Chen, Job Title: Wealth Advisor, Profile Link: https://www.linkedin.com/in/maya-chen-wealth/, Connection Info: True.'
+  expected_output:
+    action: ignore
+    reason: Wealth advisors must always be ignored, even when there are mutual connections.
+  metadata: {}
+- name: Jordan Lee
+  inputs: 'Name: Jordan Lee, Job Title: Financial Planner helping Microsoft engineers manage equity compensation, Profile Link: https://www.linkedin.com/in/jordan-lee-finance/, Connection Info: True.'
+  expected_output:
+    action: ignore
+    reason: Financial planners must always be ignored, even when they have mutual connections and work with Microsoft employees.
+  metadata: {}
+- name: Taylor Morgan
+  inputs: 'Name: Taylor Morgan, Job Title: Investment Advisor and former Software Engineer at Microsoft, Profile Link: https://www.linkedin.com/in/taylor-morgan-investments/, Connection Info: False.'
+  expected_output:
+    action: ignore
+    reason: Investment advisors must always be ignored, even when they previously had a technical role at Microsoft.
   metadata: {}

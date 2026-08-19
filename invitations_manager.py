@@ -11,6 +11,8 @@ import yaml
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from playwright.async_api import ElementHandle, Page, async_playwright
+from playwright.async_api import Error as PlaywrightError
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from pydantic import BaseModel
 from pydantic_ai import Agent, NativeOutput
 from pydantic_ai.models.openai import OpenAIChatModel
@@ -21,6 +23,9 @@ from rich.logging import RichHandler
 logging.basicConfig(level=logging.WARNING, format="%(message)s", datefmt="[%X]", handlers=[RichHandler(show_level=True)])
 logger = logging.getLogger("invitations_manager")
 logger.setLevel(logging.INFO)
+
+PROFILE_NAVIGATION_TIMEOUT_MS = 45000
+PROFILE_CONTENT_TIMEOUT_MS = 15000
 
 # Setup the OpenAI client to use either Azure OpenAI or GitHub Models
 load_dotenv(override=True)
@@ -64,9 +69,10 @@ class Invitation(BaseModel):
 agent = Agent(
     model,
     system_prompt="""Decide whether to accept or ignore LinkedIn invitations based on the profile information provided.
-Accept if the person has a technical role, or is a student studying Computer Science, Data Science, or Machine Learning, or has mutual connections, or works at Microsoft.
-Ignore if they are a recruiter or a financial advisor.
-Ignore any profile that appears to be a coach (for example: coach, coaching, life coach, executive coach, career coach, leadership coach, mindset coach, sales coach).
+Always ignore wealth advisors, financial advisors, financial planners, investment advisors, and wealth management professionals. Apply this rule first. It overrides every acceptance criterion, including technical roles, mutual connections, and employment at Microsoft.
+Always ignore profiles that appear to be coaches (for example: coach, coaching, life coach, executive coach, career coach, leadership coach, mindset coach, or sales coach). This exclusion also overrides every acceptance criterion.
+Otherwise, accept if the person has a technical role, or is a student studying Computer Science, Data Science, or Machine Learning, or has mutual connections, or works at Microsoft.
+Ignore recruiters.
 If you have any uncertainty at all as to whether the person meets the acceptance criteria, respond with 'undecided'.""",
     output_type=NativeOutput(InvitationDecision),
 )
@@ -175,19 +181,33 @@ async def get_invitation_info(card) -> Invitation | None:
 
 async def get_profile_info(page: Page, profile_url: str) -> str:
     """Visit the profile page and extract relevant information."""
-    # Open profile in a new tab
     new_page = await page.context.new_page()
-    await new_page.goto(profile_url)
-    await new_page.wait_for_load_state("load")
+    try:
+        try:
+            await new_page.goto(profile_url, wait_until="domcontentloaded", timeout=PROFILE_NAVIGATION_TIMEOUT_MS)
+        except PlaywrightTimeoutError as timeout_error:
+            logger.warning(
+                "Timed out navigating to profile page %s; trying to extract any content that loaded. Error: %s",
+                profile_url,
+                timeout_error,
+            )
 
-    # Just grab the whole main region
-    main_content = await new_page.query_selector("main")
-    if not main_content:
-        logger.warning(f"Main content not found on profile page: {profile_url}")
-        return "Profile information not available."
-    profile_text = await main_content.inner_text()
-    await new_page.close()
-    return profile_text
+        try:
+            main_content = await new_page.wait_for_selector("main, div[role='main']", timeout=PROFILE_CONTENT_TIMEOUT_MS)
+        except PlaywrightTimeoutError:
+            logger.warning("Main content not found on profile page: %s (current URL: %s)", profile_url, new_page.url)
+            return "Profile information not available because LinkedIn did not finish loading the profile page."
+
+        profile_text = (await main_content.inner_text()).strip()
+        if not profile_text:
+            logger.warning("Profile page content was empty: %s", profile_url)
+            return "Profile information not available because the profile page content was empty."
+        return profile_text
+    except PlaywrightError as playwright_error:
+        logger.warning("Could not fetch profile information for %s: %s", profile_url, playwright_error)
+        return "Profile information not available because LinkedIn could not load the profile page."
+    finally:
+        await new_page.close()
 
 
 async def execute_action(page: Page, card: ElementHandle, decision: InvitationDecision) -> InvitationDecision:
