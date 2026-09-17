@@ -8,7 +8,6 @@ $azureOpenAiEndpoint = azd env get-value AZURE_OPENAI_ENDPOINT
 $azureOpenAiChatDeployment = azd env get-value AZURE_OPENAI_CHAT_DEPLOYMENT
 $azureOpenAiChatModel = azd env get-value AZURE_OPENAI_CHAT_MODEL
 
-Add-Content -Path .env -Value "API_HOST=azure"
 Add-Content -Path .env -Value "AZURE_TENANT_ID=$azureTenantId"
 Add-Content -Path .env -Value "AZURE_OPENAI_SERVICE=$azureOpenAiService"
 Add-Content -Path .env -Value "AZURE_OPENAI_ENDPOINT=$azureOpenAiEndpoint"

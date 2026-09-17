@@ -17,24 +17,18 @@ logging.basicConfig(level=logging.WARNING, format="%(message)s", datefmt="[%X]",
 logger = logging.getLogger("inbox_manager")
 logger.setLevel(logging.INFO)
 
-# Setup the OpenAI client to use either Azure OpenAI or GitHub Models
-load_dotenv(override=True)
-API_HOST = os.getenv("API_HOST", "github")
-
-if API_HOST == "github":
-    client = AsyncOpenAI(api_key=os.environ["GITHUB_TOKEN"], base_url="https://models.inference.ai.azure.com")
-    model = OpenAIModel(os.getenv("GITHUB_MODEL", "gpt-4o"), provider=OpenAIProvider(openai_client=client))
-    logger.info("Using GitHub Models with model %s", model.model_name)
-elif API_HOST == "azure":
-    token_provider = azure.identity.get_bearer_token_provider(azure.identity.DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
-    client = AsyncOpenAI(
-        base_url=os.environ["AZURE_OPENAI_ENDPOINT"],
-        api_key=token_provider,
-    )
-    model = OpenAIModel(os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"], provider=OpenAIProvider(openai_client=client))
-    logger.info("Using Azure OpenAI with model %s", model.model_name)
-else:
-    raise ValueError(f"Unsupported API_HOST: {API_HOST}")
+# Setup the Azure OpenAI client
+load_dotenv()
+token_provider = azure.identity.get_bearer_token_provider(
+    azure.identity.DefaultAzureCredential(),
+    "https://cognitiveservices.azure.com/.default",
+)
+client = AsyncOpenAI(
+    base_url=os.environ["AZURE_OPENAI_ENDPOINT"],
+    api_key=token_provider,
+)
+model = OpenAIModel(os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"], provider=OpenAIProvider(openai_client=client))
+logger.info("Using Azure OpenAI with model %s", model.model_name)
 
 
 class MessageRanking(BaseModel):

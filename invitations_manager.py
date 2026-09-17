@@ -26,25 +26,23 @@ logger.setLevel(logging.INFO)
 
 PROFILE_NAVIGATION_TIMEOUT_MS = 45000
 PROFILE_CONTENT_TIMEOUT_MS = 15000
+INVITATION_CARD_SELECTORS = [
+    "div[role='listitem']:has(button[aria-label^='Ignore an invitation to connect from ']):has(a[href*='/in/'])",
+    "main div[componentkey^='auto-component-']:has(button[aria-label*='Accept'])",
+]
 
-# Setup the OpenAI client to use either Azure OpenAI or GitHub Models
-load_dotenv(override=True)
-API_HOST = os.getenv("API_HOST", "github")
-
-if API_HOST == "github":
-    client = AsyncOpenAI(api_key=os.environ["GITHUB_TOKEN"], base_url="https://models.inference.ai.azure.com")
-    model = OpenAIChatModel(os.getenv("GITHUB_MODEL", "gpt-4o"), provider=OpenAIProvider(openai_client=client))
-    logger.info("Using GitHub Models with model %s", model.model_name)
-elif API_HOST == "azure":
-    token_provider = azure.identity.aio.get_bearer_token_provider(azure.identity.aio.AzureDeveloperCliCredential(tenant_id=os.environ["AZURE_TENANT_ID"]), "https://cognitiveservices.azure.com/.default")
-    client = AsyncOpenAI(
-        base_url=os.environ["AZURE_OPENAI_ENDPOINT"] + "/openai/v1",
-        api_key=token_provider,
-    )
-    model = OpenAIChatModel(os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"], provider=OpenAIProvider(openai_client=client))
-    logger.info("Using Azure OpenAI with model %s", model.model_name)
-else:
-    raise ValueError(f"Unsupported API_HOST: {API_HOST}")
+# Setup the Azure OpenAI client
+load_dotenv()
+token_provider = azure.identity.aio.get_bearer_token_provider(
+    azure.identity.aio.AzureDeveloperCliCredential(tenant_id=os.environ["AZURE_TENANT_ID"]),
+    "https://cognitiveservices.azure.com/.default",
+)
+client = AsyncOpenAI(
+    base_url=os.environ["AZURE_OPENAI_ENDPOINT"] + "/openai/v1",
+    api_key=token_provider,
+)
+model = OpenAIChatModel(os.environ["AZURE_OPENAI_CHAT_DEPLOYMENT"], provider=OpenAIProvider(openai_client=client))
+logger.info("Using Azure OpenAI with model %s", model.model_name)
 
 
 class InvitationAction(Enum):
@@ -156,16 +154,25 @@ async def get_invitation_info(card) -> Invitation | None:
     if not name:
         return None
 
-    # Job title may appear in different elements depending on layout
-    job_title_selectors = [
-        "p:nth-of-type(2)",
-        "span.t-14",
-        "div.artdeco-entity-lockup__subtitle span",
-    ]
+    card_lines = [line.strip() for line in (await card.inner_text()).splitlines() if line.strip()]
+    try:
+        name_index = card_lines.index(name)
+    except ValueError:
+        name_index = -1
+
     job_title = "Unknown"
-    for selector in job_title_selectors:
-        element = await card.query_selector(selector)
-        if element:
+    for line in card_lines[name_index + 1 :]:
+        if line in {"Accept", "Ignore"} or line.startswith("Reply to ") or "mutual connection" in line.lower():
+            continue
+        if line:
+            job_title = line
+            break
+
+    if job_title == "Unknown":
+        for selector in ["p:nth-of-type(2)", "span.t-14", "div.artdeco-entity-lockup__subtitle span"]:
+            element = await card.query_selector(selector)
+            if not element:
+                continue
             text = (await element.inner_text()).strip()
             if text:
                 job_title = first_non_empty_line(text)
@@ -267,12 +274,13 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
         await page.wait_for_load_state("load")
 
         async def get_invitation_cards() -> list[ElementHandle]:
-            primary_selector = "main div[componentkey^='auto-component-']:has(button[aria-label*='Accept'])"
-            cards = await page.query_selector_all(primary_selector)
-            if not cards:
-                html_snippet = (await page.content())[:2000]
-                logger.warning("No invitation cards found with primary selector. HTML snippet (2k chars): %s", html_snippet)
-            return cards
+            for selector in INVITATION_CARD_SELECTORS:
+                cards = await page.query_selector_all(selector)
+                if cards:
+                    return cards
+            html_snippet = (await page.content())[:2000]
+            logger.warning("No invitation cards found. HTML snippet (2k chars): %s", html_snippet)
+            return []
 
         # Wait for the main region to be present
         await page.wait_for_selector("main#workspace, main, div[role='main']")

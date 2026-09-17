@@ -9,7 +9,6 @@ This repository provides an AI-powered agent for managing personal LinkedIn acco
   * [GitHub Codespaces](#github-codespaces)
   * [VS Code Dev Containers](#vs-code-dev-containers)
   * [Local environment](#local-environment)
-* [Configuring GitHub Models](#configuring-github-models)
 * [Configuring Azure AI models](#configuring-azure-ai-models)
 * [Running the invitation manager](#running-the-invitation-manager)
 * [Cost estimate](#cost-estimate)
@@ -71,33 +70,9 @@ A related option is VS Code Dev Containers, which will open the project in your 
     ```
 
 
-## Configuring GitHub Models
-
-If you open this repository in GitHub Codespaces, you can run the scripts for free using GitHub Models without any additional steps, as your `GITHUB_TOKEN` is already configured in the Codespaces environment.
-
-If you want to run the scripts locally, you need to set up the `GITHUB_TOKEN` environment variable with a GitHub personal access token (PAT). You can create a PAT by following these steps:
-
-1. Go to your GitHub account settings.
-2. Click on "Developer settings" in the left sidebar.
-3. Click on "Personal access tokens" in the left sidebar.
-4. Click on "Tokens (classic)" or "Fine-grained tokens" depending on your preference.
-5. Click on "Generate new token".
-6. Give your token a name and select the scopes you want to grant. For this project, you don't need any specific scopes.
-7. Click on "Generate token".
-8. Copy the generated token.
-9. Set the `GITHUB_TOKEN` environment variable in your terminal or IDE:
-
-    ```shell
-    export GITHUB_TOKEN=your_personal_access_token
-    ```
-
-10. Optionally, you can use a model other than "gpt-4o" by setting the `GITHUB_MODEL` environment variable. Use a model that supports function calling, such as: `gpt-4o`, `gpt-4o-mini`, `o3-mini`, `AI21-Jamba-1.5-Large`, `AI21-Jamba-1.5-Mini`, `Codestral-2501`, `Cohere-command-r`, `Ministral-3B`, `Mistral-Large-2411`, `Mistral-Nemo`, `Mistral-small`
-
 ## Configuring Azure AI models
 
-You can run all examples in this repository using GitHub Models. If you want to run the examples using models from Azure OpenAI instead, you need to provision the Azure AI resources, which will incur costs.
-
-This project includes infrastructure as code (IaC) to provision an Azure OpenAI deployment of "gpt-4o". The IaC is defined in the `infra` directory and uses the Azure Developer CLI to provision the resources.
+This project uses Azure OpenAI and includes infrastructure as code (IaC) to provision a `gpt-5.5` deployment. The IaC is defined in the `infra` directory and uses the Azure Developer CLI. Provisioned resources incur Azure costs.
 
 1. Make sure the [Azure Developer CLI (azd)](https://aka.ms/install-azd) is installed.
 
@@ -140,9 +115,7 @@ This project includes evaluations using Pydantic-AI evals to measure the agent's
 
 On average, each LinkedIn invitation processed by the agent requires approximately 200 tokens. If the agent decides it needs to open the full profile page to gather more information, it requires an additional 400 tokens on average.
 
-If you use GitHub Models, the cost is free as long as usage remains under [the rate limits](https://docs.github.com/github-models/use-github-models/prototyping-with-ai-models#rate-limits). You can switch models to a model with a lower rate limit by setting the `GITHUB_MODEL` environment variable in `.env` to a different model name.
-
-If you use Azure OpenAI, the cost depends on the model and the number of tokens processed. You can find the pricing details on the [Azure OpenAI pricing page](https://azure.microsoft.com/pricing/details/cognitive-services/openai-service/).
+Azure OpenAI cost depends on the deployed model and usage. See the [Azure OpenAI pricing page](https://azure.microsoft.com/pricing/details/cognitive-services/openai-service/).
 
 ## Resources
 
