@@ -235,6 +235,20 @@ async def execute_action(page: Page, card: ElementHandle, decision: InvitationDe
     return decision
 
 
+async def ignore_newsletter_invitations(page: Page) -> int:
+    ignored_count = 0
+    selector = "button[aria-label^='Ignore invitation for ']"
+
+    while ignore_button := await page.query_selector(selector):
+        label = await ignore_button.get_attribute("aria-label")
+        await ignore_button.click()
+        ignored_count += 1
+        logger.info("Ignored newsletter invitation: %s", label)
+        await asyncio.sleep(1)
+
+    return ignored_count
+
+
 async def process_linkedin_invitations(num_to_process: int, record_eval_cases: bool = False, headless: bool = False):
     logger.info("Starting LinkedIn invitation processing...")
     results = []
@@ -272,6 +286,7 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
         # Go to invitation manager
         await page.goto("https://www.linkedin.com/mynetwork/invitation-manager/")
         await page.wait_for_load_state("load")
+        ignored_newsletter_count = await ignore_newsletter_invitations(page)
 
         async def get_invitation_cards() -> list[ElementHandle]:
             for selector in INVITATION_CARD_SELECTORS:
@@ -373,6 +388,7 @@ async def process_linkedin_invitations(num_to_process: int, record_eval_cases: b
         # Generate report
         logger.info("\n=== LinkedIn Invitation Processing Report ===")
         logger.info(f"Total invitations processed: {processed_count}")
+        logger.info("Newsletter invitations ignored: %d", ignored_newsletter_count)
 
         accepted = [r for r in results if r.decision and r.decision.action == InvitationAction.ACCEPT]
         ignored = [r for r in results if r.decision and r.decision.action == InvitationAction.IGNORE]
