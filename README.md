@@ -46,7 +46,7 @@ A related option is VS Code Dev Containers, which will open the project in your 
 
 1. Make sure the following tools are installed:
 
-    * [Python 3.10+](https://www.python.org/downloads/)
+    * [Python 3.11+](https://www.python.org/downloads/)
     * Git
 
 2. Clone the repository:
